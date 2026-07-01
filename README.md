@@ -2,11 +2,13 @@
 
 Aplikasi web prediksi pertandingan sepak bola berbasis koin virtual.
 
+**Production:** https://hasbie.xyz
+
 ## Stack
 
 - Node.js + Express + EJS
 - SQLite (`better-sqlite3`)
-- PM2 + Nginx + Let's Encrypt (production)
+- PM2 + Nginx + Let's Encrypt
 
 ## Setup lokal
 
@@ -30,28 +32,27 @@ Buka http://localhost:3000
 
 ---
 
-## Deploy VPS (Ubuntu/Debian)
+## Deploy VPS — hasbie.xyz
 
-### Prasyarat
+| Item | Nilai |
+|------|-------|
+| IPv4 | `202.155.18.36` |
+| Domain | `hasbie.xyz` |
+| Repo | `https://github.com/ryanhasbie/forbiddendoor.git` |
+| Path app | `/var/www/forbiddendoor` |
 
-- VPS Ubuntu 22.04+ / Debian 12+
-- Domain mengarah ke IP VPS (A record)
-- Port 80 & 443 terbuka
+DNS `hasbie.xyz` dan `www.hasbie.xyz` harus A record ke `202.155.18.36`.
 
-### 1. Setup awal (sekali)
-
-SSH ke VPS, lalu jalankan:
+### 1. Setup awal (sekali, di VPS)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y git
-sudo git clone https://github.com/ryanhasbie/forbiddendoor.git /var/www/forbiddendoor
-cd /var/www/forbiddendoor
-sudo DOMAIN=forbiddendoor.com CERTBOT_EMAIL=email@anda.com bash deploy/setup-vps.sh
-```
+ssh root@202.155.18.36
 
-Ganti:
-- `forbiddendoor.com` → domain Anda
-- `email@anda.com` → email untuk SSL Let's Encrypt
+apt-get update && apt-get install -y git
+git clone https://github.com/ryanhasbie/forbiddendoor.git /var/www/forbiddendoor
+cd /var/www/forbiddendoor
+DOMAIN=hasbie.xyz CERTBOT_EMAIL=ryanhasbie7@gmail.com bash deploy/setup-vps.sh
+```
 
 ### 2. Buat akun admin
 
@@ -60,25 +61,19 @@ cd /var/www/forbiddendoor
 node create-admin.js admin PasswordKuat123
 ```
 
-### 3. Edit konfigurasi
+### 3. Edit .env (jika perlu)
 
 ```bash
 nano /var/www/forbiddendoor/.env
 ```
 
-Pastikan:
-```
-NODE_ENV=production
-SESSION_SECRET=<sudah di-generate otomatis>
-SOCIABUZZ_URL=https://sociabuzz.com/...
-```
+Pastikan `NODE_ENV=production` dan `SOCIABUZZ_URL` sudah benar.
 
-Reload app:
 ```bash
 pm2 reload deploy/ecosystem.config.cjs --env production
 ```
 
-### 4. Update app (setelah ada perubahan di GitHub)
+### 4. Update app
 
 ```bash
 cd /var/www/forbiddendoor
@@ -91,19 +86,16 @@ bash deploy/deploy.sh
 |----------|--------|
 | `pm2 status` | Cek status app |
 | `pm2 logs tebakbola` | Lihat log |
-| `pm2 restart tebakbola` | Restart app |
-| `bash deploy/backup-db.sh` | Backup database manual |
-| `sudo nginx -t && sudo systemctl reload nginx` | Reload Nginx |
+| `bash deploy/backup-db.sh` | Backup database |
+| `nginx -t && systemctl reload nginx` | Reload Nginx |
 
-### Backup otomatis
-
-Setup script mengaktifkan cron backup `data.db` setiap hari jam 03:00 ke folder `backups/` (simpan 14 file terakhir).
+Backup otomatis: setiap hari jam 03:00 → folder `backups/`
 
 ---
 
 ## Scripts npm
 
-- `npm start` — jalankan server (development)
-- `npm run create-admin -- <user> <pass>` — buat akun admin
-- `npm run pm2:start` — start via PM2 (production)
+- `npm start` — development
+- `npm run create-admin -- <user> <pass>` — buat admin
+- `npm run pm2:start` — start PM2 production
 - `npm run pm2:reload` — reload PM2

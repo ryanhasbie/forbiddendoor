@@ -80,8 +80,8 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$CERTBOT_EMAIL" --redirect || {
-  echo "Certbot gagal. Coba manual: certbot --nginx -d $DOMAIN -m $CERTBOT_EMAIL"
+certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos -m "$CERTBOT_EMAIL" --redirect || {
+  echo "Certbot gagal. Coba manual: certbot --nginx -d $DOMAIN -d www.$DOMAIN -m $CERTBOT_EMAIL"
 }
 
 (crontab -l 2>/dev/null | grep -v backup-db.sh; echo "0 3 * * * cd $APP_DIR && bash deploy/backup-db.sh >> logs/backup.log 2>&1") | crontab -
