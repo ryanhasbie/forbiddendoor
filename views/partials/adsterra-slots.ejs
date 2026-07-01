@@ -4,15 +4,35 @@
   const mobileKey = typeof adsterraBannerMobileKey !== 'undefined' ? adsterraBannerMobileKey : '';
   const extraClass = typeof adExtraClass !== 'undefined' ? adExtraClass : '';
   const desktopClass = (mobileKey ? 'ad-slot-desktop' : 'ad-slot-all') + (extraClass ? ' ' + extraClass : '');
+  const mobileClass = 'ad-slot-mobile' + (extraClass ? ' ' + extraClass : '');
 %>
 <% if (adsOn && bannerKey) { %>
-  <%- include('partials/adsterra-banner', { adKey: bannerKey, adSlotClass: desktopClass }) %>
+<div class="ad-slot adsterra-unit <%= desktopClass %>">
+  <span class="ad-label">Iklan</span>
+  <script>
+    atOptions = {
+      'key' : '<%= bannerKey %>',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://www.highperformanceformat.com/<%= bannerKey %>/invoke.js"></script>
+</div>
 <% } %>
 <% if (adsOn && mobileKey) { %>
-  <%- include('partials/adsterra-banner', {
-    adKey: mobileKey,
-    adWidth: 320,
-    adHeight: 50,
-    adSlotClass: 'ad-slot-mobile' + (extraClass ? ' ' + extraClass : '')
-  }) %>
+<div class="ad-slot adsterra-unit <%= mobileClass %>">
+  <span class="ad-label">Iklan</span>
+  <script>
+    atOptions = {
+      'key' : '<%= mobileKey %>',
+      'format' : 'iframe',
+      'height' : 50,
+      'width' : 320,
+      'params' : {}
+    };
+  </script>
+  <script src="https://www.highperformanceformat.com/<%= mobileKey %>/invoke.js"></script>
+</div>
 <% } %>
