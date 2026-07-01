@@ -1,0 +1,8 @@
+<% if (typeof POST !== 'undefined' && POST.logout) { %>
+<form method="post" action="<%= POST.logout %>" class="logout-form<%= typeof logoutClass !== 'undefined' ? ' ' + logoutClass : '' %>">
+  <%- include('partials/csrf') %>
+  <button type="submit" class="btn-logout<%= typeof btnClass !== 'undefined' ? ' ' + btnClass : '' %>">
+    <%= typeof logoutLabel !== 'undefined' ? logoutLabel : 'Keluar' %>
+  </button>
+</form>
+<% } %>

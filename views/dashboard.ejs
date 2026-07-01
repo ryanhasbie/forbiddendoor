@@ -52,25 +52,26 @@
         <% } %>
       </nav>
 
-      <form method="post" action="<%= POST.timezone %>" class="timezone-form">
-        <%- include('partials/csrf') %>
-        <label for="user-timezone">Zona waktu tampilan</label>
-        <select id="user-timezone" name="timezone" onchange="this.form.submit()">
-          <%- include('partials/timezone-select') %>
-        </select>
-      </form>
-
-      <form method="post" action="<%= POST.logout %>" class="sidebar-logout">
-        <%- include('partials/csrf') %>
-        <button type="submit" class="btn-logout">Keluar</button>
-      </form>
+      <div class="sidebar-footer">
+        <form method="post" action="<%= POST.timezone %>" class="timezone-form">
+          <%- include('partials/csrf') %>
+          <label for="user-timezone">Zona waktu tampilan</label>
+          <select id="user-timezone" name="timezone" onchange="this.form.submit()">
+            <%- include('partials/timezone-select') %>
+          </select>
+        </form>
+        <%- include('partials/logout-form', { logoutClass: 'sidebar-logout' }) %>
+      </div>
     </aside>
 
     <div class="main-area">
       <header class="mobile-header">
         <button type="button" id="sidebar-toggle" class="btn-menu">☰</button>
         <strong>TebakBola</strong>
-        <span class="mobile-coins"><%= coins %> koin</span>
+        <div class="mobile-header-actions">
+          <span class="mobile-coins"><%= coins %> koin</span>
+          <%- include('partials/logout-form', { logoutClass: 'mobile-logout', logoutLabel: 'Keluar', btnClass: 'btn-logout-sm' }) %>
+        </div>
       </header>
 
       <main class="main-content">

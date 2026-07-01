@@ -18,6 +18,7 @@
       <a href="<%= PATH.terms %>">Syarat &amp; Ketentuan</a>
       <% if (isLoggedIn && dashboardPath) { %>
         <a href="<%= dashboardPath %>">Dashboard</a>
+        <%- include('partials/logout-form', { logoutClass: 'public-logout', logoutLabel: 'Keluar', btnClass: 'btn-logout-sm' }) %>
       <% } else { %>
         <a href="<%= PATH.login %>">Login</a>
       <% } %>

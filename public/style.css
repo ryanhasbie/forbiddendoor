@@ -460,6 +460,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
   height: 100vh;
   z-index: 100;
   transition: transform 0.3s ease;
+  overflow: hidden;
 }
 
 .sidebar-brand {
@@ -499,6 +500,15 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
   flex-direction: column;
   gap: 6px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.sidebar-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 .nav-item {
   display: flex;
@@ -527,9 +537,9 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
 .nav-icon { font-size: 1.1rem; width: 24px; text-align: center; }
 
 .timezone-form {
-  margin-top: auto;
-  padding: 14px;
-  border-top: 1px solid var(--border);
+  margin-top: 0;
+  padding: 0 0 12px;
+  border-top: none;
 }
 .timezone-form label {
   display: block;
@@ -548,14 +558,34 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
   color: var(--text);
   font-size: 0.85rem;
 }
-.sidebar-logout { padding-top: 12px; }
+.sidebar-logout { padding-top: 0; }
+.logout-form { margin: 0; }
 .btn-logout {
   width: 100%;
   background: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .btn-logout:hover { background: rgba(239, 68, 68, 0.25); }
+.btn-logout-sm {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.public-logout { display: inline-flex; }
+.public-nav .logout-form {
+  display: inline-flex;
+  align-items: center;
+}
 
 .main-area {
   flex: 1;
