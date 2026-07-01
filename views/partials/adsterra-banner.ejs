@@ -1,0 +1,27 @@
+<%
+  const key =
+    typeof adKey !== 'undefined'
+      ? adKey
+      : typeof adsterraBannerKey !== 'undefined'
+        ? adsterraBannerKey
+        : '';
+  const w = typeof adWidth !== 'undefined' ? adWidth : 728;
+  const h = typeof adHeight !== 'undefined' ? adHeight : 90;
+  const fmt = typeof adFormat !== 'undefined' ? adFormat : 'iframe';
+  const slotClass = typeof adSlotClass !== 'undefined' ? adSlotClass : '';
+%>
+<% if ((typeof adsEnabled !== 'undefined' && adsEnabled) && key) { %>
+<div class="ad-slot adsterra-unit <%= slotClass %>">
+  <span class="ad-label">Iklan</span>
+  <script>
+    atOptions = {
+      'key' : '<%= key %>',
+      'format' : '<%= fmt %>',
+      'height' : <%= h %>,
+      'width' : <%= w %>,
+      'params' : {}
+    };
+  </script>
+  <script src="https://www.highperformanceformat.com/<%= key %>/invoke.js"></script>
+</div>
+<% } %>

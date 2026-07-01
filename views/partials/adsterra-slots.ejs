@@ -1,0 +1,18 @@
+<%
+  const adsOn = typeof adsEnabled !== 'undefined' && adsEnabled;
+  const bannerKey = typeof adsterraBannerKey !== 'undefined' ? adsterraBannerKey : '';
+  const mobileKey = typeof adsterraBannerMobileKey !== 'undefined' ? adsterraBannerMobileKey : '';
+  const extraClass = typeof adExtraClass !== 'undefined' ? adExtraClass : '';
+  const desktopClass = (mobileKey ? 'ad-slot-desktop' : 'ad-slot-all') + (extraClass ? ' ' + extraClass : '');
+%>
+<% if (adsOn && bannerKey) { %>
+  <%- include('partials/adsterra-banner', { adKey: bannerKey, adSlotClass: desktopClass }) %>
+<% } %>
+<% if (adsOn && mobileKey) { %>
+  <%- include('partials/adsterra-banner', {
+    adKey: mobileKey,
+    adWidth: 320,
+    adHeight: 50,
+    adSlotClass: 'ad-slot-mobile' + (extraClass ? ' ' + extraClass : '')
+  }) %>
+<% } %>

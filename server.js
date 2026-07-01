@@ -36,13 +36,20 @@ const {
   redirectFlash,
 } = require('./routes');
 
-const app = express();
-app.locals.timezoneOptions = TZ_OPTIONS;
 const PORT = process.env.PORT || 3000;
 const SOCIABUZZ_URL =
   process.env.SOCIABUZZ_URL || 'https://sociabuzz.com/sophiacalista/tribe';
 const BET_LOCK_MINUTES = 5;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const ADS_ENABLED = process.env.ADSTERRA_ENABLED === 'true';
+const ADSTERRA_BANNER_KEY = process.env.ADSTERRA_BANNER_KEY || '';
+const ADSTERRA_BANNER_MOBILE_KEY = process.env.ADSTERRA_BANNER_MOBILE_KEY || '';
+
+const app = express();
+app.locals.timezoneOptions = TZ_OPTIONS;
+app.locals.adsEnabled = ADS_ENABLED;
+app.locals.adsterraBannerKey = ADSTERRA_BANNER_KEY;
+app.locals.adsterraBannerMobileKey = ADSTERRA_BANNER_MOBILE_KEY;
 
 initSecurityTables(db);
 const sessionStore = new SqliteSessionStore(db);
@@ -75,6 +82,7 @@ app.use(
 app.use((req, res, next) => {
   syncRouteLocals(req, res);
   syncTimezoneLocals(req, res);
+  syncAdLocals(res);
   ensureCsrfToken(req);
   res.locals.csrfToken = req.session.csrfToken;
   next();
@@ -105,6 +113,39 @@ function addTransaction(userId, type, amount, note) {
   db.prepare(
     'INSERT INTO transactions (user_id, type, amount, note) VALUES (?, ?, ?, ?)'
   ).run(userId, type, amount, note);
+}
+
+const TX_TYPE_LABELS = {
+  bonus: 'Bonus daftar',
+  topup: 'Top-up koin',
+  bet: 'Pasang tebakan',
+  win: 'Menang tebakan',
+  redeem: 'Redeem disetujui',
+  redeem_hold: 'Redeem (ditahan)',
+  redeem_refund: 'Redeem ditolak',
+  redeem_cancel: 'Redeem dibatalkan',
+  bet_refund: 'Refund tebakan',
+  admin_adjust: 'Penyesuaian admin',
+};
+
+function getTransactionTypeLabel(type) {
+  return TX_TYPE_LABELS[type] || type;
+}
+
+function enrichTransactions(transactions) {
+  return transactions.map((tx) => ({
+    ...tx,
+    typeLabel: getTransactionTypeLabel(tx.type),
+    isCredit: tx.amount > 0,
+    isDebit: tx.amount < 0,
+    isNeutral: tx.amount === 0,
+    amountDisplay:
+      tx.amount === 0
+        ? '—'
+        : tx.amount > 0
+          ? `+${tx.amount}`
+          : String(tx.amount),
+  }));
 }
 
 function formatRp(amount) {
@@ -172,14 +213,27 @@ function getTimezoneViewData(req) {
   };
 }
 
+function getAdViewData() {
+  return {
+    adsEnabled: ADS_ENABLED,
+    adsterraBannerKey: ADSTERRA_BANNER_KEY,
+    adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
+  };
+}
+
 function syncTimezoneLocals(req, res) {
   Object.assign(res.locals, getTimezoneViewData(req));
+}
+
+function syncAdLocals(res) {
+  Object.assign(res.locals, getAdViewData());
 }
 
 function renderView(res, req, view, data = {}) {
   const tzData = getTimezoneViewData(req);
   res.render(view, {
     ...data,
+    ...getAdViewData(),
     csrfToken: req.session.csrfToken,
     timezoneOptions: tzData.timezoneOptions,
     userTimezone: tzData.userTimezone,
@@ -613,7 +667,7 @@ function handleLoginPost(req, res) {
 
 function handleDashboardGet(req, res) {
   const flash = pullFlash(req);
-  const wallet = getWallet(req.session.userId);
+  const wallet = getWallet(req.session.userId) || { coins: 0 };
   const matches = enrichMatches(
     db.prepare("SELECT * FROM matches WHERE status = 'open' ORDER BY kickoff ASC").all(),
     req.session.userId
@@ -641,6 +695,15 @@ function handleDashboardGet(req, res) {
        ORDER BY created_at DESC`
     )
     .all(req.session.userId);
+  const transactions = enrichTransactions(
+    db
+      .prepare(
+        `SELECT * FROM transactions
+         WHERE user_id = ?
+         ORDER BY created_at DESC`
+      )
+      .all(req.session.userId)
+  );
 
   renderView(res, req, 'dashboard', {
     username: req.session.username,
@@ -648,6 +711,7 @@ function handleDashboardGet(req, res) {
     coins: wallet.coins,
     matches,
     bets,
+    transactions,
     topupRequests,
     redeemRequests,
     sociabuzzUrl: SOCIABUZZ_URL,
@@ -853,7 +917,12 @@ function handleBetPost(req, res) {
     db.prepare(
       'INSERT INTO bets (user_id, match_id, choice, coins, odds) VALUES (?, ?, ?, ?, ?)'
     ).run(req.session.userId, match.id, choice, stake, odds);
-    addTransaction(req.session.userId, 'bet', -stake, `Tebakan match #${match.id}`);
+    addTransaction(
+      req.session.userId,
+      'bet',
+      -stake,
+      `Tebakan ${match.team_a} vs ${match.team_b}`
+    );
   });
 
   try {
@@ -1375,7 +1444,7 @@ function handleAdminRedeemOkPost(req, res) {
   addTransaction(
     request.user_id,
     'redeem',
-    -request.coins,
+    0,
     `Redeem ${request.amount_label} disetujui - transfer manual`
   );
 
@@ -1543,7 +1612,12 @@ function handleAdminSettlePost(req, res) {
           payout,
           bet.user_id
         );
-        addTransaction(bet.user_id, 'win', payout, `Menang match #${match_id}`);
+        addTransaction(
+          bet.user_id,
+          'win',
+          payout,
+          `Menang ${match.team_a} vs ${match.team_b}`
+        );
       } else {
         db.prepare("UPDATE bets SET status = 'lost', payout = 0 WHERE id = ?").run(bet.id);
       }

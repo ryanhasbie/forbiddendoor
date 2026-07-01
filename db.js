@@ -133,6 +133,124 @@ for (const [key, value] of defaultSettings) {
   insertSetting.run(key, value);
 }
 
+const txBackfill = db.prepare("SELECT value FROM settings WHERE key = 'tx_backfill_v1'").get();
+if (!txBackfill) {
+  const insertTx = db.prepare(
+    'INSERT INTO transactions (user_id, type, amount, note, created_at) VALUES (?, ?, ?, ?, ?)'
+  );
+  const registerBonus = parseInt(
+    db.prepare("SELECT value FROM settings WHERE key = 'register_bonus'").get()?.value || '30',
+    10
+  );
+
+  const usersWithoutBonus = db
+    .prepare(
+      `SELECT u.id, u.created_at FROM users u
+       WHERE NOT EXISTS (
+         SELECT 1 FROM transactions t WHERE t.user_id = u.id AND t.type = 'bonus'
+       )`
+    )
+    .all();
+  for (const user of usersWithoutBonus) {
+    insertTx.run(user.id, 'bonus', registerBonus, 'Bonus daftar', user.created_at);
+  }
+
+  const approvedTopups = db
+    .prepare(
+      `SELECT * FROM topup_requests WHERE status = 'approved'
+       AND NOT EXISTS (
+         SELECT 1 FROM transactions t
+         WHERE t.user_id = topup_requests.user_id AND t.type = 'topup'
+         AND t.amount = topup_requests.coins
+       )`
+    )
+    .all();
+  for (const req of approvedTopups) {
+    insertTx.run(
+      req.user_id,
+      'topup',
+      req.coins,
+      `Top up ${req.amount_label} via Sociabuzz (manual)`,
+      req.processed_at || req.created_at
+    );
+  }
+
+  const bets = db
+    .prepare(
+      `SELECT b.id, b.user_id, b.match_id, b.coins, b.status, b.payout, b.created_at,
+              m.team_a, m.team_b
+       FROM bets b
+       JOIN matches m ON m.id = b.match_id
+       WHERE NOT EXISTS (
+         SELECT 1 FROM transactions t
+         WHERE t.user_id = b.user_id AND t.type = 'bet' AND t.amount = -b.coins
+         AND (
+           t.note LIKE '%' || m.team_a || '%'
+           OR t.note LIKE '%match #' || b.match_id || '%'
+         )
+       )`
+    )
+    .all();
+  for (const bet of bets) {
+    insertTx.run(
+      bet.user_id,
+      'bet',
+      -bet.coins,
+      `Tebakan ${bet.team_a} vs ${bet.team_b}`,
+      bet.created_at
+    );
+    if (bet.status === 'won' && bet.payout > 0) {
+      insertTx.run(
+        bet.user_id,
+        'win',
+        bet.payout,
+        `Menang ${bet.team_a} vs ${bet.team_b}`,
+        bet.created_at
+      );
+    }
+  }
+
+  const redeemHolds = db
+    .prepare(
+      `SELECT * FROM redeem_requests
+       WHERE status IN ('pending', 'approved', 'rejected')
+       AND NOT EXISTS (
+         SELECT 1 FROM transactions t
+         WHERE t.user_id = redeem_requests.user_id AND t.type = 'redeem_hold'
+         AND t.amount = -redeem_requests.coins
+       )`
+    )
+    .all();
+  for (const req of redeemHolds) {
+    insertTx.run(
+      req.user_id,
+      'redeem_hold',
+      -req.coins,
+      `Redeem ${req.amount_label} - menunggu approval`,
+      req.created_at
+    );
+    if (req.status === 'approved') {
+      insertTx.run(
+        req.user_id,
+        'redeem',
+        0,
+        `Redeem ${req.amount_label} disetujui - transfer manual`,
+        req.processed_at || req.created_at
+      );
+    } else if (req.status === 'rejected') {
+      insertTx.run(
+        req.user_id,
+        'redeem_refund',
+        req.coins,
+        `Redeem ${req.amount_label} ditolak - koin dikembalikan`,
+        req.processed_at || req.created_at
+      );
+    }
+  }
+
+  db.prepare("INSERT INTO settings (key, value) VALUES ('tx_backfill_v1', '1')").run();
+}
+
 const matchCount = db.prepare('SELECT COUNT(*) as count FROM matches').get();
 if (matchCount.count === 0) {
   const insertMatch = db.prepare(`
