@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syarat &amp; Ketentuan - TebakBola</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="public-body">
+  <header class="public-header">
+    <a href="<%= PATH.login %>" class="public-brand">
+      <span>⚽</span> TebakBola
+    </a>
+    <nav class="public-nav">
+      <a href="<%= PATH.leaderboard %>">Leaderboard</a>
+      <a href="<%= PATH.terms %>" class="active">Syarat &amp; Ketentuan</a>
+      <% if (isLoggedIn && dashboardPath) { %>
+        <a href="<%= dashboardPath %>">Dashboard</a>
+      <% } else { %>
+        <a href="<%= PATH.login %>">Login</a>
+      <% } %>
+    </nav>
+  </header>
+
+  <main class="public-main">
+    <div class="page-header">
+      <h1>📜 Syarat &amp; Ketentuan</h1>
+      <p>Terakhir diperbarui: Juli 2026</p>
+    </div>
+
+    <div class="card terms-content">
+      <section>
+        <h2>1. Ketentuan Umum</h2>
+        <p>TebakBola adalah platform prediksi pertandingan sepak bola berbasis koin virtual untuk hiburan. Dengan mendaftar dan menggunakan layanan ini, Anda dianggap telah membaca dan menyetujui seluruh syarat &amp; ketentuan berikut.</p>
+      </section>
+
+      <section>
+        <h2>2. Akun Pengguna</h2>
+        <ul>
+          <li>Setiap pengguna wajib membuat akun dengan data yang benar.</li>
+          <li>Akun bersifat pribadi dan tidak boleh dibagikan kepada pihak lain.</li>
+          <li>Admin berhak menonaktifkan atau menghapus akun yang melanggar aturan.</li>
+          <li>Jumlah pendaftar dapat dibatasi sesuai kebijakan admin.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. Koin Virtual</h2>
+        <ul>
+          <li>Koin adalah mata uang virtual dalam platform, bukan uang rupiah.</li>
+          <li>Koin dapat diperoleh melalui bonus daftar, top-up, atau kemenangan tebakan.</li>
+          <li>Koin dapat diredeem menjadi rupiah sesuai paket yang tersedia, setelah disetujui admin.</li>
+          <li>Nilai tukar koin ditentukan oleh admin dan dapat berubah sewaktu-waktu.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. Top-up &amp; Redeem</h2>
+        <ul>
+          <li>Top-up dilakukan secara manual melalui Sociabuzz, lalu dikonfirmasi admin.</li>
+          <li>Redeem membutuhkan saldo koin mencukupi dan data pembayaran yang valid.</li>
+          <li>Koin akan dikunci saat pengajuan redeem menunggu persetujuan admin.</li>
+          <li>Admin berhak menolak top-up/redeem jika data tidak valid atau mencurigakan.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. Aturan Tebakan</h2>
+        <ul>
+          <li>Tebakan hanya dapat dipasang pada pertandingan yang statusnya masih terbuka.</li>
+          <li>Tebakan ditutup beberapa menit sebelum kick-off sesuai pengaturan platform.</li>
+          <li>Setiap user hanya boleh memasang <strong>satu tebakan per pertandingan</strong>.</li>
+          <li>Tebakan yang sudah dipasang <strong>tidak dapat diubah atau dibatalkan</strong>.</li>
+          <li>Minimal taruhan ditentukan oleh admin.</li>
+          <li>Hasil pertandingan diproses oleh admin; koin kemenangan dihitung berdasarkan odds saat tebakan dipasang.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. Leaderboard</h2>
+        <p>Peringkat leaderboard dihitung berdasarkan total koin menang dari tebakan yang berhasil. Leaderboard bersifat informatif dan dapat berubah setiap waktu.</p>
+      </section>
+
+      <section>
+        <h2>7. Larangan</h2>
+        <ul>
+          <li>Membuat banyak akun untuk keuntungan tidak sah.</li>
+          <li>Manipulasi transaksi, tebakan, atau sistem platform.</li>
+          <li>Menggunakan bot, script, atau cara otomatis lainnya.</li>
+          <li>Tindakan yang merugikan admin, pengguna lain, atau platform.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>8. Penafian</h2>
+        <p>TebakBola disediakan sebagai hiburan. Platform tidak menjamin ketersediaan layanan tanpa gangguan. Keputusan admin bersifat final dalam hal transaksi, tebakan, dan redeem.</p>
+      </section>
+
+      <section>
+        <h2>9. Perubahan Ketentuan</h2>
+        <p>Admin dapat mengubah syarat &amp; ketentuan ini sewaktu-waktu. Perubahan berlaku setelah dipublikasikan di halaman ini.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="public-footer">
+    <a href="<%= PATH.leaderboard %>">Leaderboard</a>
+    <span>© 2026 TebakBola</span>
+  </footer>
+</body>
+</html>

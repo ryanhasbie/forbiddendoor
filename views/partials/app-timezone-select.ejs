@@ -1,0 +1,14 @@
+<%
+  var tzList = [
+    { id: 'Asia/Jakarta', label: 'WIB (UTC+7)' },
+    { id: 'Asia/Makassar', label: 'WITA (UTC+8)' },
+    { id: 'Asia/Jayapura', label: 'WIT (UTC+9)' }
+  ];
+  if (typeof timezoneOptions !== 'undefined' && timezoneOptions && timezoneOptions.length) {
+    tzList = timezoneOptions;
+  }
+  var activeTz = (typeof appTimezone !== 'undefined' && appTimezone) ? appTimezone : 'Asia/Jakarta';
+%>
+<% tzList.forEach(function(tz) { %>
+  <option value="<%= tz.id %>" <%= activeTz === tz.id ? 'selected' : '' %>><%= tz.label %></option>
+<% }); %>

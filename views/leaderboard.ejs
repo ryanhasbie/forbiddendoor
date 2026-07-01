@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard - TebakBola</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="public-body">
+  <header class="public-header">
+    <a href="<%= PATH.login %>" class="public-brand">
+      <span>⚽</span> TebakBola
+    </a>
+    <nav class="public-nav">
+      <a href="<%= PATH.leaderboard %>" class="active">Leaderboard</a>
+      <a href="<%= PATH.terms %>">Syarat &amp; Ketentuan</a>
+      <% if (isLoggedIn && dashboardPath) { %>
+        <a href="<%= dashboardPath %>">Dashboard</a>
+      <% } else { %>
+        <a href="<%= PATH.login %>">Login</a>
+      <% } %>
+    </nav>
+  </header>
+
+  <main class="public-main">
+    <div class="page-header">
+      <h1>🏆 Leaderboard</h1>
+      <p>Peringkat pemain berdasarkan total koin menang dari tebakan.</p>
+    </div>
+
+    <% if (myRank) { %>
+      <div class="card my-rank-card">
+        <span class="my-rank-label">Peringkat Anda</span>
+        <div class="my-rank-stats">
+          <div><strong>#<%= myRank.rank %></strong><small>Peringkat</small></div>
+          <div><strong>@<%= myRank.username %></strong><small>Username</small></div>
+          <div><strong><%= myRank.total_won %></strong><small>Total Menang</small></div>
+          <div><strong><%= myRank.wins %></strong><small>Tebakan Benar</small></div>
+          <div><strong><%= myRank.coins %></strong><small>Saldo Koin</small></div>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Total Menang</th>
+              <th>Menang</th>
+              <th>Kalah</th>
+              <th>Saldo Koin</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!leaders.length) { %>
+              <tr><td colspan="6" class="empty-state">Belum ada data leaderboard.</td></tr>
+            <% } %>
+            <% leaders.forEach(function(player, index) { %>
+              <tr class="<%= myRank && myRank.id === player.id ? 'row-highlight' : '' %>">
+                <td>
+                  <% if (index === 0) { %>🥇
+                  <% } else if (index === 1) { %>🥈
+                  <% } else if (index === 2) { %>🥉
+                  <% } else { %><%= index + 1 %><% } %>
+                </td>
+                <td><strong>@<%= player.username %></strong></td>
+                <td class="col-win"><%= player.total_won %> koin</td>
+                <td><%= player.wins %></td>
+                <td><%= player.losses %></td>
+                <td><%= player.coins %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="public-footer">
+    <a href="<%= PATH.terms %>">Syarat &amp; Ketentuan</a>
+    <span>© 2026 TebakBola</span>
+  </footer>
+</body>
+</html>

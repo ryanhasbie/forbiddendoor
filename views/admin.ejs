@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - TebakBola</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="dashboard-body admin-body" data-initial-panel="<%= initialPanel %>">
+  <div class="app-layout">
+    <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+    <aside class="sidebar sidebar-admin" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">⚙️</span>
+        <div>
+          <strong>Admin Panel</strong>
+          <small>TebakBola</small>
+        </div>
+      </div>
+
+      <div class="wallet-card wallet-card-admin">
+        <span class="wallet-label">Login sebagai</span>
+        <span class="wallet-amount admin-name"><%= typeof username !== 'undefined' ? username : 'Admin' %></span>
+        <span class="wallet-user">Administrator</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item active" data-panel="panel-topup">
+          <span class="nav-icon">💳</span> Top-up
+          <% if (pendingTopup > 0) { %><span class="nav-badge"><%= pendingTopup %></span><% } %>
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-redeem">
+          <span class="nav-icon">💸</span> Redeem
+          <% if (pendingRedeem > 0) { %><span class="nav-badge"><%= pendingRedeem %></span><% } %>
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-pertandingan">
+          <span class="nav-icon">⚽</span> Pertandingan
+          <% if (openMatches > 0) { %><span class="nav-badge nav-badge-muted"><%= openMatches %></span><% } %>
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-settle">
+          <span class="nav-icon">🏆</span> Settle Hasil
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-riwayat-bet">
+          <span class="nav-icon">📋</span> Riwayat Tebakan
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-koin">
+          <span class="nav-icon">🪙</span> Pengaturan Koin
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-user">
+          <span class="nav-icon">👥</span> Kelola User
+          <span class="nav-badge nav-badge-muted"><%= userCount %>/<%= maxUsers %></span>
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-akun">
+          <span class="nav-icon">🔐</span> Akun Admin
+        </button>
+        <a class="nav-item nav-link" href="<%= PATH.dashboard %>">
+          <span class="nav-icon">←</span> Dashboard User
+        </a>
+      </nav>
+
+      <form method="post" action="<%= POST.timezone %>" class="timezone-form">
+        <%- include('partials/csrf') %>
+        <input type="hidden" name="return_to" value="admin" />
+        <label for="admin-timezone">Zona waktu tampilan</label>
+        <select id="admin-timezone" name="timezone" onchange="this.form.submit()">
+          <%- include('partials/timezone-select') %>
+        </select>
+      </form>
+
+      <form method="post" action="<%= POST.logout %>" class="sidebar-logout">
+        <%- include('partials/csrf') %>
+        <button type="submit" class="btn-logout">Keluar</button>
+      </form>
+    </aside>
+
+    <div class="main-area">
+      <header class="mobile-header">
+        <button type="button" id="sidebar-toggle" class="btn-menu">☰</button>
+        <strong>Admin Panel</strong>
+        <span class="mobile-coins">@<%= typeof username !== 'undefined' ? username : 'Admin' %></span>
+      </header>
+
+      <main class="main-content">
+        <% if (message) { %><div class="alert success"><%= message %></div><% } %>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+
+        <!-- TOP-UP -->
+        <section id="panel-topup" class="panel active">
+          <div class="page-header">
+            <h1>Konfirmasi Top-up</h1>
+            <p>Setujui pembayaran Sociabuzz dari user.</p>
+          </div>
+          <div class="card">
+            <% if (topupRequests.length === 0) { %>
+              <p class="empty-state">Belum ada permintaan top-up.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Paket</th>
+                      <th>Koin</th>
+                      <th>Catatan</th>
+                      <th>Status</th>
+                      <th>Waktu</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% topupRequests.forEach(function(req) { %>
+                      <tr>
+                        <td><strong><%= req.username %></strong></td>
+                        <td><%= req.amount_label %></td>
+                        <td><%= req.coins %></td>
+                        <td><%= req.note %></td>
+                        <td><span class="status-badge status-<%= req.status %>"><%= req.status %></span></td>
+                        <td><%= formatTimestamp(req.created_at) %></td>
+                        <td class="action-cell">
+                          <% if (req.status === 'pending') { %>
+                            <form method="post" action="<%= POST.adminTopupOk %>">
+                              <%- include('partials/csrf') %>
+                              <input type="hidden" name="request_id" value="<%= req.id %>" />
+                              <button type="submit" class="btn-sm">Approve</button>
+                            </form>
+                            <form method="post" action="<%= POST.adminTopupNo %>">
+                              <%- include('partials/csrf') %>
+                              <input type="hidden" name="request_id" value="<%= req.id %>" />
+                              <button type="submit" class="btn-sm danger">Tolak</button>
+                            </form>
+                          <% } %>
+                          <form method="post" action="<%= POST.adminTopupDel %>" class="delete-history-form" data-label="top-up #<%= req.id %> (<%= req.username %>)">
+                            <%- include('partials/csrf') %>
+                            <input type="hidden" name="request_id" value="<%= req.id %>" />
+                            <button type="submit" class="btn-sm danger">Hapus</button>
+                          </form>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- REDEEM -->
+        <section id="panel-redeem" class="panel">
+          <div class="page-header">
+            <h1>Konfirmasi Redeem</h1>
+            <p>Transfer manual dulu, lalu klik Approve.</p>
+          </div>
+          <div class="card">
+            <% if (redeemRequests.length === 0) { %>
+              <p class="empty-state">Belum ada permintaan redeem.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Koin</th>
+                      <th>Nominal</th>
+                      <th>Ke</th>
+                      <th>No. Akun</th>
+                      <th>Atas Nama</th>
+                      <th>Status</th>
+                      <th>Waktu</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% redeemRequests.forEach(function(req) { %>
+                      <tr>
+                        <td><strong><%= req.username %></strong></td>
+                        <td><%= req.coins %></td>
+                        <td><%= req.amount_label %></td>
+                        <td><%= req.payment_method %></td>
+                        <td><%= req.account_number %></td>
+                        <td><%= req.account_name %></td>
+                        <td><span class="status-badge status-<%= req.status %>"><%= req.status %></span></td>
+                        <td><%= formatTimestamp(req.created_at) %></td>
+                        <td class="action-cell">
+                          <% if (req.status === 'pending') { %>
+                            <form method="post" action="<%= POST.adminRedeemOk %>">
+                              <%- include('partials/csrf') %>
+                              <input type="hidden" name="request_id" value="<%= req.id %>" />
+                              <button type="submit" class="btn-sm">Approve</button>
+                            </form>
+                            <form method="post" action="<%= POST.adminRedeemNo %>">
+                              <%- include('partials/csrf') %>
+                              <input type="hidden" name="request_id" value="<%= req.id %>" />
+                              <button type="submit" class="btn-sm danger">Tolak</button>
+                            </form>
+                          <% } %>
+                          <form method="post" action="<%= POST.adminRedeemDel %>" class="delete-history-form" data-label="redeem #<%= req.id %> (<%= req.username %>)">
+                            <%- include('partials/csrf') %>
+                            <input type="hidden" name="request_id" value="<%= req.id %>" />
+                            <button type="submit" class="btn-sm danger">Hapus</button>
+                          </form>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- RIWAYAT TEBAKAN -->
+        <section id="panel-riwayat-bet" class="panel">
+          <div class="page-header">
+            <h1>Riwayat Tebakan User</h1>
+            <p>Semua tebakan dari seluruh user. Hapus untuk bersihkan riwayat.</p>
+          </div>
+          <div class="card">
+            <% if (!allBets || allBets.length === 0) { %>
+              <p class="empty-state">Belum ada tebakan.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Match</th>
+                      <th>Pilihan</th>
+                      <th>Koin</th>
+                      <th>Odds</th>
+                      <th>Status</th>
+                      <th>Payout</th>
+                      <th>Waktu</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% allBets.forEach(function(bet) { %>
+                      <tr>
+                        <td><strong>@<%= bet.username %></strong></td>
+                        <td><%= bet.team_a %> vs <%= bet.team_b %></td>
+                        <td>
+                          <% if (bet.choice === 'home') { %><%= bet.team_a %>
+                          <% } else if (bet.choice === 'away') { %><%= bet.team_b %>
+                          <% } else { %>Seri<% } %>
+                        </td>
+                        <td><%= bet.coins %></td>
+                        <td>x<%= bet.odds %></td>
+                        <td><span class="status-badge status-<%= bet.status %>"><%= bet.status %></span></td>
+                        <td><%= bet.payout ?? '-' %></td>
+                        <td><%= formatTimestamp(bet.created_at) %></td>
+                        <td class="action-cell">
+                          <form method="post" action="<%= POST.adminBetDel %>" class="delete-history-form" data-label="tebakan #<%= bet.id %> (@<%= bet.username %>)">
+                            <%- include('partials/csrf') %>
+                            <input type="hidden" name="bet_id" value="<%= bet.id %>" />
+                            <button type="submit" class="btn-sm danger">Hapus</button>
+                          </form>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- PERTANDINGAN -->
+        <section id="panel-pertandingan" class="panel">
+          <div class="page-header">
+            <h1>Pertandingan</h1>
+            <p>Tambah dan kelola jadwal pertandingan.</p>
+          </div>
+
+          <div class="card">
+            <h2>Tambah Pertandingan</h2>
+            <form method="post" action="<%= POST.adminMatchAdd %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <div class="odds-grid">
+                <div>
+                  <label>Tim A (Home)</label>
+                  <input name="team_a" type="text" placeholder="Brazil" required />
+                </div>
+                <div>
+                  <label>Tim B (Away)</label>
+                  <input name="team_b" type="text" placeholder="Argentina" required />
+                </div>
+              </div>
+              <label>Jadwal Kick-off (<%= appTzLabel %>)</label>
+              <input name="kickoff" type="datetime-local" required />
+              <p class="muted">Masukkan waktu sesuai zona aplikasi, bukan waktu perangkat Anda.</p>
+              <div class="odds-grid">
+                <div>
+                  <label>Odds Tim A</label>
+                  <input name="odds_home" type="number" step="0.1" min="1" value="2.0" required />
+                </div>
+                <div>
+                  <label>Odds Seri</label>
+                  <input name="odds_draw" type="number" step="0.1" min="1" value="3.0" required />
+                </div>
+                <div>
+                  <label>Odds Tim B</label>
+                  <input name="odds_away" type="number" step="0.1" min="1" value="2.5" required />
+                </div>
+              </div>
+              <button type="submit" class="btn-primary">Tambah Pertandingan</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Daftar Pertandingan</h2>
+            <% if (matches.length === 0) { %>
+              <p class="empty-state">Belum ada pertandingan.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Match</th>
+                      <th>Kick-off</th>
+                      <th>Odds (A/S/B)</th>
+                      <th>Status</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% matches.forEach(function(match) { %>
+                      <tr>
+                        <td><strong><%= match.team_a %></strong> vs <strong><%= match.team_b %></strong></td>
+                        <td><%= formatKickoff(match.kickoff) %></td>
+                        <td><%= match.odds_home %> / <%= match.odds_draw %> / <%= match.odds_away %></td>
+                        <td><span class="status-badge status-<%= match.status === 'open' ? 'pending' : 'approved' %>"><%= match.status %></span></td>
+                        <td>
+                          <% if (match.status === 'open') { %>
+                            <form method="post" action="<%= POST.adminMatchDel %>">
+                              <%- include('partials/csrf') %>
+                              <input type="hidden" name="match_id" value="<%= match.id %>" />
+                              <button type="submit" class="btn-sm danger">Hapus</button>
+                            </form>
+                          <% } else { %>-<% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- SETTLE -->
+        <section id="panel-settle" class="panel">
+          <div class="page-header">
+            <h1>Settle Hasil</h1>
+            <p>Proses hasil pertandingan dan bagikan koin ke pemenang.</p>
+          </div>
+
+          <% const unsettled = matches.filter(m => m.status !== 'finished'); %>
+          <% if (unsettled.length === 0) { %>
+            <div class="card empty-state">Semua pertandingan sudah diselesaikan.</div>
+          <% } %>
+
+          <div class="match-grid">
+            <% unsettled.forEach(function(match) { %>
+              <div class="match-card-v2">
+                <div class="match-header">
+                  <span class="team"><%= match.team_a %></span>
+                  <span class="vs">VS</span>
+                  <span class="team"><%= match.team_b %></span>
+                </div>
+                <p class="match-time">🕐 <%= formatKickoff(match.kickoff) %></p>
+                <form
+                  method="post"
+                  action="<%= POST.adminSettle %>"
+                  class="form-stack settle-form"
+                  data-team-a="<%= match.team_a %>"
+                  data-team-b="<%= match.team_b %>"
+                >
+                  <%- include('partials/csrf') %>
+                  <input type="hidden" name="match_id" value="<%= match.id %>" />
+                  <div class="odds-options">
+                    <label class="odd-chip">
+                      <input type="radio" name="result" value="home" required />
+                      <div class="odd-chip-inner">
+                        <span class="odd-team"><%= match.team_a %></span>
+                        <span class="odd-value">Menang</span>
+                      </div>
+                    </label>
+                    <label class="odd-chip">
+                      <input type="radio" name="result" value="draw" />
+                      <div class="odd-chip-inner">
+                        <span class="odd-team">Seri</span>
+                        <span class="odd-value">Draw</span>
+                      </div>
+                    </label>
+                    <label class="odd-chip">
+                      <input type="radio" name="result" value="away" />
+                      <div class="odd-chip-inner">
+                        <span class="odd-team"><%= match.team_b %></span>
+                        <span class="odd-value">Menang</span>
+                      </div>
+                    </label>
+                  </div>
+                  <button type="submit" class="btn-primary">Proses Hasil</button>
+                </form>
+              </div>
+            <% }); %>
+          </div>
+        </section>
+
+        <!-- KOIN -->
+        <section id="panel-koin" class="panel">
+          <div class="page-header">
+            <h1>Pengaturan Koin</h1>
+            <p>Atur bonus daftar, minimal taruhan, dan paket beli/redeem.</p>
+          </div>
+
+          <div class="card">
+            <h2>Zona Waktu Aplikasi</h2>
+            <p class="muted">
+              Jadwal kick-off diinput dan disimpan menurut zona ini.
+              Saat ini: <strong><%= appTzLabel %></strong>
+            </p>
+            <form method="post" action="<%= POST.adminTimezone %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <label>Zona waktu untuk jadwal pertandingan</label>
+              <select name="app_timezone" required>
+                <%- include('partials/app-timezone-select') %>
+              </select>
+              <button type="submit" class="btn-primary">Simpan Zona Waktu</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Pengaturan Taruhan</h2>
+            <p class="muted">Minimal koin yang wajib dipasang user saat tebakan. Berlaku langsung di form pasang tebakan.</p>
+            <form method="post" action="<%= POST.adminMinBet %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <label>Minimal taruhan (koin)</label>
+              <input name="min_bet" type="number" min="1" max="100000" value="<%= minBet %>" required />
+              <p class="muted">Saat ini user minimal pasang <strong><%= minBet %> koin</strong> per tebakan.</p>
+              <button type="submit" class="btn-primary">Simpan Minimal Taruhan</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <form method="post" action="<%= POST.adminBonus %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <label>Bonus koin saat daftar</label>
+              <input name="register_bonus" type="number" min="0" max="10000" value="<%= registerBonus %>" required />
+              <button type="submit" class="btn-primary">Simpan Bonus Daftar</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Paket Beli Koin</h2>
+            <% buyPackages.forEach(function(pkg) { %>
+              <form method="post" action="<%= POST.adminPkg %>" class="package-edit-form form-stack">
+                <%- include('partials/csrf') %>
+                <input type="hidden" name="id" value="<%= pkg.id %>" />
+                <input type="hidden" name="type" value="buy" />
+                <strong class="pkg-id"><%= pkg.id %></strong>
+                <div class="odds-grid">
+                  <div>
+                    <label>Nominal (Rp)</label>
+                    <input name="amount_idr" type="number" min="1000" step="1000" value="<%= pkg.amount_idr %>" required />
+                  </div>
+                  <div>
+                    <label>Jumlah koin</label>
+                    <input name="coins" type="number" min="1" value="<%= pkg.coins %>" required />
+                  </div>
+                </div>
+                <button type="submit">Update Paket Beli</button>
+              </form>
+            <% }); %>
+          </div>
+
+          <div class="card">
+            <h2>Paket Redeem</h2>
+            <% redeemPackages.forEach(function(pkg) { %>
+              <form method="post" action="<%= POST.adminPkg %>" class="package-edit-form form-stack">
+                <%- include('partials/csrf') %>
+                <input type="hidden" name="id" value="<%= pkg.id %>" />
+                <input type="hidden" name="type" value="redeem" />
+                <strong class="pkg-id"><%= pkg.id %></strong>
+                <div class="odds-grid">
+                  <div>
+                    <label>Nominal cair (Rp)</label>
+                    <input name="amount_idr" type="number" min="1000" step="1000" value="<%= pkg.amount_idr %>" required />
+                  </div>
+                  <div>
+                    <label>Koin dibutuhkan</label>
+                    <input name="coins" type="number" min="1" value="<%= pkg.coins %>" required />
+                  </div>
+                </div>
+                <button type="submit">Update Paket Redeem</button>
+              </form>
+            <% }); %>
+            <p class="muted">Naikkan koin redeem vs koin beli agar lebih menguntungkan admin.</p>
+          </div>
+        </section>
+
+        <!-- USER -->
+        <section id="panel-user" class="panel">
+          <div class="page-header">
+            <h1>Kelola User</h1>
+            <p>Atur kuota pendaftaran dan kelola user yang sudah daftar. Admin tidak dihitung &amp; tidak bisa dihapus.</p>
+          </div>
+
+          <div class="card">
+            <h2>Kuota Pendaftaran</h2>
+            <p class="muted">
+              Batasi berapa banyak user baru yang boleh mendaftar.
+              Saat ini: <strong><%= userCount %> / <%= maxUsers %></strong>
+              <% if (userCount >= maxUsers) { %>
+                — <span class="quota-full">kuota penuh, pendaftaran ditutup</span>
+              <% } else { %>
+                — tersisa <strong><%= maxUsers - userCount %></strong> slot
+              <% } %>
+            </p>
+            <form method="post" action="<%= POST.adminMaxUsers %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <label>Maksimal user yang boleh daftar</label>
+              <input name="max_users" type="number" min="1" max="10000" value="<%= maxUsers %>" required />
+              <button type="submit" class="btn-primary">Simpan Kuota Pendaftaran</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Daftar User</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Koin</th>
+                    <th>Daftar</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!users.length) { %>
+                    <tr><td colspan="5" class="empty-state">Belum ada user</td></tr>
+                  <% } %>
+                  <% users.forEach(function(user) { %>
+                    <tr>
+                      <td><strong>@<%= user.username %></strong></td>
+                      <td>
+                        <span class="status-badge <%= user.role === 'admin' ? 'status-approved' : 'status-pending' %>">
+                          <%= user.role %>
+                        </span>
+                      </td>
+                      <td><%= user.coins %></td>
+                      <td><%= formatTimestamp(user.created_at) %></td>
+                      <td class="action-cell">
+                        <% if (user.role !== 'admin') { %>
+                          <form method="post" action="<%= POST.adminUserDel %>" class="delete-user-form">
+                            <%- include('partials/csrf') %>
+                            <input type="hidden" name="user_id" value="<%= user.id %>" />
+                            <button type="submit" class="btn-sm danger" data-username="<%= user.username %>">Hapus</button>
+                          </form>
+                        <% } else { %>
+                          <span class="muted">—</span>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- AKUN ADMIN -->
+        <section id="panel-akun" class="panel">
+          <div class="page-header">
+            <h1>Akun Admin</h1>
+            <p>Ganti username dan/atau password akun admin yang sedang login.</p>
+          </div>
+
+          <div class="card">
+            <p class="muted">Login saat ini: <strong>@<%= username %></strong></p>
+            <form method="post" action="<%= POST.adminAccount %>" class="form-stack" id="admin-account-form">
+              <%- include('partials/csrf') %>
+              <label>Password saat ini</label>
+              <input name="current_password" type="password" placeholder="Masukkan password lama" required />
+
+              <label>Username baru (opsional)</label>
+              <input name="new_username" type="text" placeholder="Kosongkan jika tidak ganti username" />
+
+              <label>Password baru (opsional)</label>
+              <input name="new_password" type="password" placeholder="Minimal 6 karakter" />
+
+              <label>Konfirmasi password baru</label>
+              <input name="confirm_password" type="password" placeholder="Ulangi password baru" />
+
+              <button type="submit" class="btn-primary">Simpan Perubahan Akun</button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/admin.js"></script>
+</body>
+</html>

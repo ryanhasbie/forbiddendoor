@@ -1,0 +1,30 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hasbie-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: hasbie-open-webui
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    ports:
+      - "${WEBUI_PORT:-3000}:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - WEBUI_NAME=${WEBUI_NAME:-Hasbie AI}
+    volumes:
+      - open-webui-data:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  ollama-data:
+  open-webui-data:

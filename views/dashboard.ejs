@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - TebakBola</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="dashboard-body" data-initial-panel="<%= initialPanel %>">
+  <div class="app-layout">
+    <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">⚽</span>
+        <div>
+          <strong>TebakBola</strong>
+          <small>Prediction Game</small>
+        </div>
+      </div>
+
+      <div class="wallet-card">
+        <span class="wallet-label">Saldo Koin</span>
+        <span class="wallet-amount"><%= coins %></span>
+        <span class="wallet-user">@<%= username %></span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item active" data-panel="panel-beli">
+          <span class="nav-icon">💳</span> Beli Koin
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-redeem">
+          <span class="nav-icon">💸</span> Redeem Koin
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-tebakan">
+          <span class="nav-icon">🎯</span> Pasang Tebakan
+        </button>
+        <button type="button" class="nav-item" data-panel="panel-riwayat">
+          <span class="nav-icon">📋</span> Riwayat
+        </button>
+        <a class="nav-item nav-link" href="<%= PATH.leaderboard %>">
+          <span class="nav-icon">🏆</span> Leaderboard
+        </a>
+        <a class="nav-item nav-link" href="<%= PATH.terms %>">
+          <span class="nav-icon">📜</span> Syarat &amp; Ketentuan
+        </a>
+        <% if (isAdmin) { %>
+          <a class="nav-item nav-link" href="<%= PATH.admin %>">
+            <span class="nav-icon">⚙️</span> Panel Admin
+          </a>
+        <% } %>
+      </nav>
+
+      <form method="post" action="<%= POST.timezone %>" class="timezone-form">
+        <%- include('partials/csrf') %>
+        <label for="user-timezone">Zona waktu tampilan</label>
+        <select id="user-timezone" name="timezone" onchange="this.form.submit()">
+          <%- include('partials/timezone-select') %>
+        </select>
+      </form>
+
+      <form method="post" action="<%= POST.logout %>" class="sidebar-logout">
+        <%- include('partials/csrf') %>
+        <button type="submit" class="btn-logout">Keluar</button>
+      </form>
+    </aside>
+
+    <div class="main-area">
+      <header class="mobile-header">
+        <button type="button" id="sidebar-toggle" class="btn-menu">☰</button>
+        <strong>TebakBola</strong>
+        <span class="mobile-coins"><%= coins %> koin</span>
+      </header>
+
+      <main class="main-content">
+        <% if (message) { %><div class="alert success"><%= message %></div><% } %>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+
+        <!-- BELI KOIN -->
+        <section id="panel-beli" class="panel active">
+          <div class="page-header">
+            <h1>Beli Koin</h1>
+            <p>Top-up via Sociabuzz, lalu kirim konfirmasi pembayaran.</p>
+          </div>
+
+          <div class="package-grid">
+            <% buyPackages.forEach(function(pkg) { %>
+              <div class="package-card">
+                <div class="package-coins"><%= pkg.coins %></div>
+                <div class="package-label">koin</div>
+                <div class="package-price"><%= pkg.label %></div>
+              </div>
+            <% }); %>
+          </div>
+
+          <div class="card">
+            <a class="button-link" href="<%= sociabuzzUrl %>" target="_blank" rel="noopener">
+              Buka Sociabuzz untuk Bayar →
+            </a>
+
+            <form method="post" action="<%= POST.topup %>" class="form-stack">
+              <%- include('partials/csrf') %>
+              <label>Paket yang dibeli</label>
+              <select name="package" required>
+                <% buyPackages.forEach(function(pkg) { %>
+                  <option value="<%= pkg.id %>"><%= pkg.label %> → <%= pkg.coins %> koin</option>
+                <% }); %>
+              </select>
+
+              <label>Catatan pembayaran</label>
+              <input
+                name="note"
+                type="text"
+                placeholder="Contoh: Bayar Rp50.000 atas nama <%= username %>"
+                required
+              />
+              <p class="muted">Username Anda: <strong><%= username %></strong></p>
+              <button type="submit" class="btn-primary">Kirim Konfirmasi Top-up</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Status Top-up</h2>
+            <% if (topupRequests.length === 0) { %>
+              <p class="empty-state">Belum ada permintaan top-up.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Paket</th>
+                      <th>Koin</th>
+                      <th>Catatan</th>
+                      <th>Status</th>
+                      <th>Waktu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% topupRequests.forEach(function(req) { %>
+                      <tr>
+                        <td><%= req.amount_label %></td>
+                        <td><%= req.coins %></td>
+                        <td><%= req.note %></td>
+                        <td><span class="status-badge status-<%= req.status %>"><%= req.status %></span></td>
+                        <td><%= formatTimestamp(req.created_at) %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- REDEEM -->
+        <section id="panel-redeem" class="panel">
+          <% const canRedeem = redeemPackages.some(function(pkg) { return coins >= pkg.coins; }); %>
+          <div class="page-header">
+            <h1>Redeem Koin</h1>
+            <p>Tukar koin menjadi rupiah. Koin dikunci saat pengajuan.</p>
+          </div>
+
+          <p class="redeem-balance">Saldo Anda: <strong><%= coins %> koin</strong></p>
+          <% if (!canRedeem) { %>
+            <div class="alert error">Koin tidak cukup untuk semua paket redeem. Top-up dulu ya.</div>
+          <% } %>
+
+          <div class="package-grid">
+            <% redeemPackages.forEach(function(pkg) { %>
+              <div class="package-card package-redeem <%= coins < pkg.coins ? 'package-disabled' : '' %>">
+                <div class="package-coins"><%= pkg.coins %></div>
+                <div class="package-label">koin</div>
+                <div class="package-price">→ <%= pkg.label %></div>
+                <% if (coins < pkg.coins) { %>
+                  <div class="package-unavailable">Koin tidak cukup</div>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+
+          <div class="card">
+            <form method="post" action="<%= POST.redeem %>" class="form-stack" id="redeem-form" data-balance="<%= coins %>">
+              <%- include('partials/csrf') %>
+              <label>Paket redeem</label>
+              <select name="package" required>
+                <% redeemPackages.forEach(function(pkg) { %>
+                  <option
+                    value="<%= pkg.id %>"
+                    data-coins="<%= pkg.coins %>"
+                    <%= coins < pkg.coins ? 'disabled' : '' %>
+                  >
+                    <%= pkg.coins %> koin → <%= pkg.label %><%= coins < pkg.coins ? ' (koin tidak cukup)' : '' %>
+                  </option>
+                <% }); %>
+              </select>
+
+              <label>Akun TebakBola</label>
+              <input type="text" value="<%= username %>" disabled />
+
+              <label>Cairkan ke (Bank / E-Wallet)</label>
+              <select name="payment_method" required>
+                <option value="">-- Pilih --</option>
+                <option value="BCA">BCA</option>
+                <option value="BRI">BRI</option>
+                <option value="BNI">BNI</option>
+                <option value="Mandiri">Mandiri</option>
+                <option value="GoPay">GoPay</option>
+                <option value="DANA">DANA</option>
+                <option value="OVO">OVO</option>
+                <option value="ShopeePay">ShopeePay</option>
+              </select>
+
+              <label>Nomor Rekening / Akun</label>
+              <input name="account_number" type="text" placeholder="Contoh: 1234567890" required />
+
+              <label>Atas Nama</label>
+              <input name="account_name" type="text" placeholder="Nama pemilik rekening" required />
+
+              <button type="submit" class="btn-primary" <%= !canRedeem ? 'disabled' : '' %>>Ajukan Redeem</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Status Redeem</h2>
+            <% if (redeemRequests.length === 0) { %>
+              <p class="empty-state">Belum ada permintaan redeem.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Paket</th>
+                      <th>Koin</th>
+                      <th>Ke</th>
+                      <th>Atas Nama</th>
+                      <th>Status</th>
+                      <th>Waktu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% redeemRequests.forEach(function(req) { %>
+                      <tr>
+                        <td><%= req.amount_label %></td>
+                        <td><%= req.coins %></td>
+                        <td><%= req.payment_method %> · <%= req.account_number %></td>
+                        <td><%= req.account_name %></td>
+                        <td><span class="status-badge status-<%= req.status %>"><%= req.status %></span></td>
+                        <td><%= formatTimestamp(req.created_at) %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- TEBAKAN -->
+        <section id="panel-tebakan" class="panel">
+          <div class="page-header">
+            <h1>Pasang Tebakan</h1>
+            <p>Pilih pertandingan dan pasang koin sebelum kick-off. Minimal taruhan: <strong><%= minBet %> koin</strong>.</p>
+          </div>
+
+          <% if (matches.length === 0) { %>
+            <div class="card empty-state">Belum ada pertandingan buka.</div>
+          <% } %>
+
+          <div class="match-grid">
+            <% matches.forEach(function(match) { %>
+              <div class="match-card-v2">
+                <div class="match-header">
+                  <span class="team"><%= match.team_a %></span>
+                  <span class="vs">VS</span>
+                  <span class="team"><%= match.team_b %></span>
+                </div>
+                <p class="match-time">🕐 <%= formatKickoff(match.kickoff) %></p>
+
+                <% if (match.userBet) { %>
+                  <div class="bet-locked-summary">
+                    <span class="badge-locked">🔒 Tebakan terkunci</span>
+                    <p class="bet-locked-choice">
+                      Pilihan:
+                      <strong>
+                        <% if (match.userBet.choice === 'home') { %>
+                          <%= match.team_a %>
+                        <% } else if (match.userBet.choice === 'away') { %>
+                          <%= match.team_b %>
+                        <% } else { %>
+                          Seri
+                        <% } %>
+                      </strong>
+                    </p>
+                    <p class="bet-locked-stake">
+                      Taruhan: <strong><%= match.userBet.coins %> koin</strong>
+                      · Odds <strong>x<%= match.userBet.odds %></strong>
+                    </p>
+                    <p class="muted bet-locked-note">Tebakan tidak bisa diubah setelah dipasang.</p>
+                  </div>
+                <% } else if (match.bettingOpen) { %>
+                  <span class="badge-open">Dibuka · lock <%= betLockMinutes %> menit sebelum kick-off</span>
+                  <form method="post" action="<%= POST.bet %>" class="form-stack">
+                    <%- include('partials/csrf') %>
+                    <input type="hidden" name="match_id" value="<%= match.id %>" />
+                    <div class="odds-options">
+                      <label class="odd-chip">
+                        <input type="radio" name="choice" value="home" required />
+                        <div class="odd-chip-inner">
+                          <span class="odd-team"><%= match.team_a %></span>
+                          <span class="odd-value">x<%= match.odds_home %></span>
+                        </div>
+                      </label>
+                      <label class="odd-chip">
+                        <input type="radio" name="choice" value="draw" />
+                        <div class="odd-chip-inner">
+                          <span class="odd-team">Seri</span>
+                          <span class="odd-value">x<%= match.odds_draw %></span>
+                        </div>
+                      </label>
+                      <label class="odd-chip">
+                        <input type="radio" name="choice" value="away" />
+                        <div class="odd-chip-inner">
+                          <span class="odd-team"><%= match.team_b %></span>
+                          <span class="odd-value">x<%= match.odds_away %></span>
+                        </div>
+                      </label>
+                    </div>
+                    <label>Taruh koin (min. <%= minBet %>)</label>
+                    <input name="coins" type="number" min="<%= minBet %>" value="<%= Math.max(minBet, 50) %>" required />
+                    <button type="submit" class="btn-primary">Pasang Tebakan</button>
+                  </form>
+                <% } else { %>
+                  <div class="badge-locked">🔒 Tebakan ditutup</div>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+        </section>
+
+        <!-- RIWAYAT -->
+        <section id="panel-riwayat" class="panel">
+          <div class="page-header">
+            <h1>Riwayat Tebakan</h1>
+            <p>Semua tebakan yang pernah Anda pasang (<%= bets.length %> data).</p>
+          </div>
+
+          <div class="card">
+            <% if (bets.length === 0) { %>
+              <p class="empty-state">Belum ada tebakan.</p>
+            <% } else { %>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Match</th>
+                      <th>Pilihan</th>
+                      <th>Koin</th>
+                      <th>Status</th>
+                      <th>Payout</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% bets.forEach(function(bet) { %>
+                      <tr>
+                        <td><strong><%= bet.team_a %></strong> vs <strong><%= bet.team_b %></strong></td>
+                        <td>
+                          <% if (bet.choice === 'home') { %>
+                            <%= bet.team_a %>
+                          <% } else if (bet.choice === 'away') { %>
+                            <%= bet.team_b %>
+                          <% } else { %>
+                            Seri
+                          <% } %>
+                        </td>
+                        <td><%= bet.coins %></td>
+                        <td><span class="status-badge status-<%= bet.status %>"><%= bet.status %></span></td>
+                        <td><%= bet.payout ?? '-' %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/dashboard.js"></script>
+</body>
+</html>
