@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "create-admin": "node create-admin.js"
+    "start:prod": "NODE_ENV=production node server.js",
+    "create-admin": "node create-admin.js",
+    "pm2:start": "pm2 start deploy/ecosystem.config.cjs --env production",
+    "pm2:reload": "pm2 reload deploy/ecosystem.config.cjs --env production",
+    "pm2:logs": "pm2 logs tebakbola"
   },
   "keywords": [],
   "author": "",
