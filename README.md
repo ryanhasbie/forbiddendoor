@@ -75,10 +75,16 @@ pm2 reload deploy/ecosystem.config.cjs --env production
 
 ### 4. Update app
 
+Manual di VPS:
+
 ```bash
 cd /var/www/forbiddendoor
 bash deploy/deploy.sh
 ```
+
+**Otomatis via GitHub Actions (CI/CD):** lihat [deploy/GITHUB-CICD.md](deploy/GITHUB-CICD.md)
+
+Setiap `git push origin main` → CI check → auto deploy ke VPS.
 
 ### Perintah berguna
 
