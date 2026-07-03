@@ -84,7 +84,18 @@ certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos -m "
   echo "Certbot gagal. Coba manual: certbot --nginx -d $DOMAIN -d www.$DOMAIN -m $CERTBOT_EMAIL"
 }
 
-(crontab -l 2>/dev/null | grep -v backup-db.sh; echo "0 3 * * * cd $APP_DIR && bash deploy/backup-db.sh >> logs/backup.log 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v backup-db.sh | grep -v disk-cleanup.sh
+ echo "0 3 * * * cd $APP_DIR && bash deploy/backup-db.sh >> logs/backup.log 2>&1"
+ echo "0 4 * * 0 cd $APP_DIR && bash deploy/disk-cleanup.sh >> logs/cleanup.log 2>&1"
+) | crontab -
+
+if [[ -f deploy/logrotate-tebakbola.conf ]]; then
+  sed "s|/var/www/forbiddendoor|$APP_DIR|g" deploy/logrotate-tebakbola.conf > /etc/logrotate.d/tebakbola
+fi
+
+if [[ -f deploy/pm2-logrotate-setup.sh ]]; then
+  bash deploy/pm2-logrotate-setup.sh || true
+fi
 
 echo ""
 echo "Setup selesai."

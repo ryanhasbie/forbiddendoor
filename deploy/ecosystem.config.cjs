@@ -13,6 +13,7 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '300M',
+      node_args: ["--max-old-space-size=192"],  // Batasi heap Node.js ~192MB agar memory stabil
       env: {
         NODE_ENV: 'development',
         PORT: 3000,

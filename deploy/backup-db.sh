@@ -16,5 +16,5 @@ fi
 cp "$DB_FILE" "$BACKUP_DIR/data-$STAMP.db"
 echo "Backup: $BACKUP_DIR/data-$STAMP.db"
 
-# Simpan 14 backup terakhir
-ls -1t "$BACKUP_DIR"/data-*.db 2>/dev/null | tail -n +15 | xargs -r rm -f
+# Simpan 7 backup terakhir
+ls -1t "$BACKUP_DIR"/data-*.db 2>/dev/null | tail -n +8 | xargs -r rm -f

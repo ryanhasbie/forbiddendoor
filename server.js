@@ -3,6 +3,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const db = require('./db');
+const queries = db.queries;  // query helper modules (new structure)
 const SqliteSessionStore = require('./session-store');
 const {
   initSecurityTables,
@@ -105,101 +106,40 @@ function denyAdmin(req, res) {
   });
 }
 
-function getWallet(userId) {
-  return db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(userId);
-}
+
 
 function addTransaction(userId, type, amount, note) {
-  db.prepare(
-    'INSERT INTO transactions (user_id, type, amount, note) VALUES (?, ?, ?, ?)'
-  ).run(userId, type, amount, note);
+  // Delegasi ke query helper
+  return queries.transactions.addTransaction(userId, type, amount, note);
 }
 
-const TX_TYPE_LABELS = {
-  bonus: 'Bonus daftar',
-  topup: 'Top-up koin',
-  bet: 'Pasang tebakan',
-  win: 'Menang tebakan',
-  redeem: 'Redeem disetujui',
-  redeem_hold: 'Redeem (ditahan)',
-  redeem_refund: 'Redeem ditolak',
-  redeem_cancel: 'Redeem dibatalkan',
-  bet_refund: 'Refund tebakan',
-  admin_adjust: 'Penyesuaian admin',
-};
+
 
 function getTransactionTypeLabel(type) {
-  return TX_TYPE_LABELS[type] || type;
+  return queries.transactions.getTransactionTypeLabel(type);
 }
 
 function enrichTransactions(transactions) {
-  return transactions.map((tx) => ({
-    ...tx,
-    typeLabel: getTransactionTypeLabel(tx.type),
-    isCredit: tx.amount > 0,
-    isDebit: tx.amount < 0,
-    isNeutral: tx.amount === 0,
-    amountDisplay:
-      tx.amount === 0
-        ? '—'
-        : tx.amount > 0
-          ? `+${tx.amount}`
-          : String(tx.amount),
-  }));
+  return queries.transactions.enrichTransactions(transactions);
 }
 
 function formatRp(amount) {
   return `Rp${Number(amount).toLocaleString('id-ID')}`;
 }
 
-function getPackages(type) {
-  return db
-    .prepare(
-      'SELECT * FROM coin_packages WHERE type = ? ORDER BY sort_order ASC, amount_idr ASC'
-    )
-    .all(type);
-}
 
-function getPackage(id, type) {
-  return db
-    .prepare('SELECT * FROM coin_packages WHERE id = ? AND type = ?')
-    .get(id, type);
-}
 
-function getSetting(key, fallback) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  if (!row) return fallback;
-  const parsed = parseInt(row.value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
 
-function getRegisterBonus() {
-  return getSetting('register_bonus', 30);
-}
-
-function getMinBet() {
-  return getSetting('min_bet', 10);
-}
-
-function getMaxUsers() {
-  return getSetting('max_users', 10);
-}
-
-function getAppTimezone() {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('app_timezone');
-  const tz = row?.value || 'Asia/Jakarta';
-  return isValidTimezone(tz) ? tz : 'Asia/Jakarta';
-}
 
 function getEffectiveTimezone(req) {
   if (req.session.userTimezone && isValidTimezone(req.session.userTimezone)) {
     return req.session.userTimezone;
   }
-  return getAppTimezone();
+  return queries.settings.getAppTimezone();
 }
 
 function getTimezoneViewData(req) {
-  const appTimezone = getAppTimezone();
+  const appTimezone = queries.settings.getAppTimezone();
   const userTimezone = getEffectiveTimezone(req);
 
   return {
@@ -270,13 +210,11 @@ function rejectInvalidCsrf(req, res, routeKey) {
 }
 
 function getRegisteredUserCount() {
-  return db
-    .prepare("SELECT COUNT(*) as count FROM users WHERE role != 'admin'")
-    .get().count;
+  return queries.users.getRegisteredUserCount();
 }
 
 function getRegistrationQuota() {
-  const maxUsers = getMaxUsers();
+  const maxUsers = queries.settings.getMaxUsers();
   const userCount = getRegisteredUserCount();
   return {
     maxUsers,
@@ -290,7 +228,7 @@ function loginPageData(mode, error = null) {
   return {
     error,
     mode,
-    registerBonus: getRegisterBonus(),
+    registerBonus: queries.settings.getRegisterBonus(),
     ...getRegistrationQuota(),
   };
 }
@@ -308,7 +246,7 @@ function deleteUserById(userId) {
 }
 
 function parseKickoff(kickoff) {
-  return wallClockToUtc(kickoff, getAppTimezone());
+  return wallClockToUtc(kickoff, queries.settings.getAppTimezone());
 }
 
 function isBettingOpen(match) {
@@ -609,7 +547,7 @@ function handleRegisterPost(req, res) {
     const result = db
       .prepare("INSERT INTO users (username, password, role) VALUES (?, ?, 'user')")
       .run(trimmedUsername, hashed);
-    const bonus = getRegisterBonus();
+    const bonus = queries.settings.getRegisterBonus();
     db.prepare('INSERT INTO wallets (user_id, coins) VALUES (?, ?)').run(
       result.lastInsertRowid,
       bonus
@@ -667,42 +605,16 @@ function handleLoginPost(req, res) {
 
 function handleDashboardGet(req, res) {
   const flash = pullFlash(req);
-  const wallet = getWallet(req.session.userId) || { coins: 0 };
+  const wallet = queries.wallets.getWallet(req.session.userId) || { coins: 0 };
   const matches = enrichMatches(
-    db.prepare("SELECT * FROM matches WHERE status = 'open' ORDER BY kickoff ASC").all(),
+    queries.matches.getOpenMatches(),
     req.session.userId
   );
-  const bets = db
-    .prepare(
-      `SELECT b.*, m.team_a, m.team_b
-       FROM bets b
-       JOIN matches m ON m.id = b.match_id
-       WHERE b.user_id = ?
-       ORDER BY b.created_at DESC`
-    )
-    .all(req.session.userId);
-  const topupRequests = db
-    .prepare(
-      `SELECT * FROM topup_requests
-       WHERE user_id = ?
-       ORDER BY created_at DESC`
-    )
-    .all(req.session.userId);
-  const redeemRequests = db
-    .prepare(
-      `SELECT * FROM redeem_requests
-       WHERE user_id = ?
-       ORDER BY created_at DESC`
-    )
-    .all(req.session.userId);
+  const bets = queries.bets.getBetsByUserId(req.session.userId);
+  const topupRequests = queries.topup_requests.getTopupRequestsByUserId(req.session.userId);
+  const redeemRequests = queries.redeem_requests.getRedeemRequestsByUserId(req.session.userId);
   const transactions = enrichTransactions(
-    db
-      .prepare(
-        `SELECT * FROM transactions
-         WHERE user_id = ?
-         ORDER BY created_at DESC`
-      )
-      .all(req.session.userId)
+    queries.transactions.getTransactionsByUserId(req.session.userId)
   );
 
   renderView(res, req, 'dashboard', {
@@ -715,10 +627,10 @@ function handleDashboardGet(req, res) {
     topupRequests,
     redeemRequests,
     sociabuzzUrl: SOCIABUZZ_URL,
-    buyPackages: getPackages('buy'),
-    redeemPackages: getPackages('redeem'),
+    buyPackages: queries.coin_packages.getPackages('buy'),
+    redeemPackages: queries.coin_packages.getPackages('redeem'),
     betLockMinutes: BET_LOCK_MINUTES,
-    minBet: getMinBet(),
+    minBet: queries.settings.getMinBet(),
     message: flash.message || null,
     error: flash.error || null,
     initialPanel: flash.panel || 'panel-beli',
@@ -747,7 +659,7 @@ function handleTimezonePost(req, res) {
 function handleTopupPost(req, res) {
   const packageId = req.body.package;
   const note = (req.body.note || '').trim();
-  const selected = getPackage(packageId, 'buy');
+  const selected = queries.coin_packages.getPackage(packageId, 'buy');
 
   if (!selected) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, { error: 'Paket tidak valid' });
@@ -758,10 +670,9 @@ function handleTopupPost(req, res) {
     });
   }
 
-  db.prepare(
-    `INSERT INTO topup_requests (user_id, package, coins, amount_label, note)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(req.session.userId, packageId, selected.coins, selected.label, note);
+  queries.topup_requests.createTopupRequest(
+    req.session.userId, packageId, selected.coins, selected.label, note
+  );
 
   redirectFlash(res, req, req.session.routes.PATH.dashboard, {
     message: 'Permintaan top-up dikirim. Tunggu admin konfirmasi.',
@@ -774,7 +685,7 @@ function handleRedeemPost(req, res) {
   const paymentMethod = (req.body.payment_method || '').trim();
   const accountNumber = (req.body.account_number || '').trim();
   const accountName = (req.body.account_name || '').trim();
-  const selected = getPackage(packageId, 'redeem');
+  const selected = queries.coin_packages.getPackage(packageId, 'redeem');
 
   if (!selected) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, {
@@ -783,7 +694,7 @@ function handleRedeemPost(req, res) {
     });
   }
 
-  const wallet = getWallet(req.session.userId);
+  const wallet = queries.wallets.getWallet(req.session.userId);
   if (!wallet || wallet.coins < selected.coins) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, {
       error: `Koin tidak cukup. Saldo ${wallet?.coins ?? 0} koin, butuh ${selected.coins} koin.`,
@@ -814,21 +725,17 @@ function handleRedeemPost(req, res) {
       .run(selected.coins, req.session.userId, selected.coins);
     if (!deducted.changes) throw new Error('INSUFFICIENT_COINS');
 
-    db.prepare(
-      `INSERT INTO redeem_requests
-       (user_id, package, coins, amount_idr, amount_label, payment_method, account_number, account_name, username_snapshot)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      req.session.userId,
+    queries.redeem_requests.createRedeemRequest({
+      userId: req.session.userId,
       packageId,
-      selected.coins,
-      selected.amount_idr,
-      selected.label,
+      coins: selected.coins,
+      amountIdr: selected.amount_idr,
+      amountLabel: selected.label,
       paymentMethod,
       accountNumber,
       accountName,
-      req.session.username
-    );
+      usernameSnapshot: req.session.username,
+    });
     addTransaction(
       req.session.userId,
       'redeem_hold',
@@ -859,7 +766,7 @@ function handleBetPost(req, res) {
   const { match_id, choice, coins } = req.body;
   const stake = parseInt(coins, 10);
   const match = db.prepare('SELECT * FROM matches WHERE id = ? AND status = ?').get(match_id, 'open');
-  const wallet = getWallet(req.session.userId);
+  const wallet = queries.wallets.getWallet(req.session.userId);
 
   if (!match) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, { error: 'Pertandingan tidak tersedia' });
@@ -887,7 +794,7 @@ function handleBetPost(req, res) {
       panel: 'panel-tebakan',
     });
   }
-  const minBet = getMinBet();
+  const minBet = queries.settings.getMinBet();
   if (!stake || stake < minBet) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, {
       error: `Minimal taruhan ${minBet} koin`,
@@ -946,26 +853,8 @@ function handleBetPost(req, res) {
 function handleAdminGet(req, res) {
   const flash = pullFlash(req);
   const matches = db.prepare('SELECT * FROM matches ORDER BY kickoff ASC').all();
-  const topupRequests = db
-    .prepare(
-      `SELECT t.*, u.username
-       FROM topup_requests t
-       JOIN users u ON u.id = t.user_id
-       ORDER BY
-         CASE t.status WHEN 'pending' THEN 0 ELSE 1 END,
-         t.created_at DESC`
-    )
-    .all();
-  const redeemRequests = db
-    .prepare(
-      `SELECT r.*, u.username
-       FROM redeem_requests r
-       JOIN users u ON u.id = r.user_id
-       ORDER BY
-         CASE r.status WHEN 'pending' THEN 0 ELSE 1 END,
-         r.created_at DESC`
-    )
-    .all();
+  const topupRequests = queries.topup_requests.getAllTopupRequests();
+  const redeemRequests = queries.redeem_requests.getAllRedeemRequests();
   const allBets = db
     .prepare(
       `SELECT b.*, u.username, m.team_a, m.team_b
@@ -983,25 +872,18 @@ function handleAdminGet(req, res) {
     .prepare('SELECT username FROM users WHERE id = ?')
     .get(req.session.userId);
   const username = req.session.username || adminUser?.username || 'Admin';
-  const users = db
-    .prepare(
-      `SELECT u.id, u.username, u.role, u.created_at, COALESCE(w.coins, 0) as coins
-       FROM users u
-       LEFT JOIN wallets w ON w.user_id = u.id
-       ORDER BY u.created_at DESC`
-    )
-    .all();
+  const users = queries.users.getAllUsers();
 
   renderView(res, req, 'admin', {
     matches,
     topupRequests,
     redeemRequests,
     allBets,
-    buyPackages: getPackages('buy'),
-    redeemPackages: getPackages('redeem'),
-    registerBonus: getRegisterBonus(),
-    minBet: getMinBet(),
-    maxUsers: getMaxUsers(),
+    buyPackages: queries.coin_packages.getPackages('buy'),
+    redeemPackages: queries.coin_packages.getPackages('redeem'),
+    registerBonus: queries.settings.getRegisterBonus(),
+    minBet: queries.settings.getMinBet(),
+    maxUsers: queries.settings.getMaxUsers(),
     userCount: getRegisteredUserCount(),
     users,
     username,
@@ -1240,7 +1122,7 @@ function handleAdminPkgPost(req, res) {
     });
   }
 
-  const existing = getPackage(id, type);
+  const existing = queries.coin_packages.getPackage(id, type);
   if (!existing) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
       error: 'Paket tidak ditemukan',
@@ -1332,9 +1214,7 @@ function handleAdminMatchDelPost(req, res) {
 
 function handleAdminTopupOkPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const request = db
-    .prepare("SELECT * FROM topup_requests WHERE id = ? AND status = 'pending'")
-    .get(requestId);
+  const request = queries.topup_requests.getTopupRequestById(requestId);
 
   if (!request) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1344,9 +1224,7 @@ function handleAdminTopupOkPost(req, res) {
   }
 
   const approve = db.transaction(() => {
-    db.prepare(
-      "UPDATE topup_requests SET status = 'approved', processed_at = CURRENT_TIMESTAMP WHERE id = ?"
-    ).run(requestId);
+    queries.topup_requests.updateTopupStatus(requestId, 'approved');
     db.prepare('UPDATE wallets SET coins = coins + ? WHERE user_id = ?').run(
       request.coins,
       request.user_id
@@ -1368,11 +1246,7 @@ function handleAdminTopupOkPost(req, res) {
 
 function handleAdminTopupNoPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const result = db
-    .prepare(
-      "UPDATE topup_requests SET status = 'rejected', processed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'"
-    )
-    .run(requestId);
+  const result = queries.topup_requests.updateTopupStatus(requestId, 'rejected');
 
   if (!result.changes) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1389,7 +1263,7 @@ function handleAdminTopupNoPost(req, res) {
 
 function handleAdminTopupDelPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const request = db.prepare('SELECT * FROM topup_requests WHERE id = ?').get(requestId);
+  const request = queries.topup_requests.getTopupRequestById(requestId);
 
   if (!request) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1399,7 +1273,7 @@ function handleAdminTopupDelPost(req, res) {
   }
 
   if (request.status === 'approved') {
-    const wallet = getWallet(request.user_id);
+    const wallet = queries.wallets.getWallet(request.user_id);
     if (!wallet || wallet.coins < request.coins) {
       return redirectFlash(res, req, req.session.routes.PATH.admin, {
         error: 'Tidak bisa hapus, koin top-up sudah dipakai user',
@@ -1418,7 +1292,7 @@ function handleAdminTopupDelPost(req, res) {
     );
   }
 
-  db.prepare('DELETE FROM topup_requests WHERE id = ?').run(requestId);
+  queries.topup_requests.deleteTopupRequest(requestId);
   redirectFlash(res, req, req.session.routes.PATH.admin, {
     message: 'Riwayat top-up berhasil dihapus',
     panel: 'panel-topup',
@@ -1427,9 +1301,7 @@ function handleAdminTopupDelPost(req, res) {
 
 function handleAdminRedeemOkPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const request = db
-    .prepare("SELECT * FROM redeem_requests WHERE id = ? AND status = 'pending'")
-    .get(requestId);
+  const request = queries.redeem_requests.getRedeemRequestById(requestId);
 
   if (!request) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1438,9 +1310,7 @@ function handleAdminRedeemOkPost(req, res) {
     });
   }
 
-  db.prepare(
-    "UPDATE redeem_requests SET status = 'approved', processed_at = CURRENT_TIMESTAMP WHERE id = ?"
-  ).run(requestId);
+  queries.redeem_requests.updateRedeemStatus(requestId, 'approved');
   addTransaction(
     request.user_id,
     'redeem',
@@ -1456,9 +1326,7 @@ function handleAdminRedeemOkPost(req, res) {
 
 function handleAdminRedeemNoPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const request = db
-    .prepare("SELECT * FROM redeem_requests WHERE id = ? AND status = 'pending'")
-    .get(requestId);
+  const request = queries.redeem_requests.getRedeemRequestById(requestId);
 
   if (!request) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1468,9 +1336,7 @@ function handleAdminRedeemNoPost(req, res) {
   }
 
   const reject = db.transaction(() => {
-    db.prepare(
-      "UPDATE redeem_requests SET status = 'rejected', processed_at = CURRENT_TIMESTAMP WHERE id = ?"
-    ).run(requestId);
+    queries.redeem_requests.updateRedeemStatus(requestId, 'rejected');
     db.prepare('UPDATE wallets SET coins = coins + ? WHERE user_id = ?').run(
       request.coins,
       request.user_id
@@ -1492,7 +1358,7 @@ function handleAdminRedeemNoPost(req, res) {
 
 function handleAdminRedeemDelPost(req, res) {
   const requestId = parseInt(req.body.request_id, 10);
-  const request = db.prepare('SELECT * FROM redeem_requests WHERE id = ?').get(requestId);
+  const request = queries.redeem_requests.getRedeemRequestById(requestId);
 
   if (!request) {
     return redirectFlash(res, req, req.session.routes.PATH.admin, {
@@ -1514,7 +1380,7 @@ function handleAdminRedeemDelPost(req, res) {
     );
   }
 
-  db.prepare('DELETE FROM redeem_requests WHERE id = ?').run(requestId);
+  queries.redeem_requests.deleteRedeemRequest(requestId);
   redirectFlash(res, req, req.session.routes.PATH.admin, {
     message: 'Riwayat redeem berhasil dihapus',
     panel: 'panel-redeem',
@@ -1546,7 +1412,7 @@ function handleAdminBetDelPost(req, res) {
   } else if (bet.status === 'won') {
     const payout = bet.payout || 0;
     if (payout > 0) {
-      const wallet = getWallet(bet.user_id);
+      const wallet = queries.wallets.getWallet(bet.user_id);
       if (!wallet || wallet.coins < payout) {
         return redirectFlash(res, req, req.session.routes.PATH.admin, {
           error: 'Tidak bisa hapus, koin kemenangan sudah dipakai user',
