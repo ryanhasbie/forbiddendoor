@@ -3,7 +3,30 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const db = require('./db');
-const queries = db.queries;  // query helper modules (new structure)
+const queries = db.queries || { settings: {}, coin_packages: {} };
+
+// Safety fallbacks (in case the refactored queries object is not fully attached after deploy)
+if (!queries.settings.getAppTimezone) {
+  queries.settings.getAppTimezone = () => {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('app_timezone');
+    return row?.value || 'Asia/Jakarta';
+  };
+}
+if (!queries.settings.getRegisterBonus) {
+  queries.settings.getRegisterBonus = () => 30;
+}
+if (!queries.settings.getMinBet) {
+  queries.settings.getMinBet = () => 10;
+}
+if (!queries.settings.getMaxUsers) {
+  queries.settings.getMaxUsers = () => 10;
+}
+if (!queries.coin_packages.getPackages) {
+  queries.coin_packages.getPackages = (type) => db.prepare('SELECT * FROM coin_packages WHERE type = ? ORDER BY sort_order ASC, amount_idr ASC').all(type);
+}
+if (!queries.coin_packages.getPackage) {
+  queries.coin_packages.getPackage = (id, type) => db.prepare('SELECT * FROM coin_packages WHERE id = ? AND type = ?').get(id, type);
+}
 const SqliteSessionStore = require('./session-store');
 const {
   initSecurityTables,
@@ -135,11 +158,14 @@ function getEffectiveTimezone(req) {
   if (req.session.userTimezone && isValidTimezone(req.session.userTimezone)) {
     return req.session.userTimezone;
   }
-  return queries.settings.getAppTimezone();
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('app_timezone');
+  const tz = row?.value || 'Asia/Jakarta';
+  return isValidTimezone(tz) ? tz : 'Asia/Jakarta';
 }
 
 function getTimezoneViewData(req) {
-  const appTimezone = queries.settings.getAppTimezone();
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('app_timezone');
+  const appTimezone = row?.value || 'Asia/Jakarta';
   const userTimezone = getEffectiveTimezone(req);
 
   return {
