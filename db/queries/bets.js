@@ -32,6 +32,22 @@ function deleteBet(betId) {
   return db.prepare('DELETE FROM bets WHERE id = ?').run(betId);
 }
 
+function deleteBetsByUserId(userId) {
+  return db.prepare('DELETE FROM bets WHERE user_id = ?').run(userId);
+}
+
+function getAllBetsWithDetails() {
+  return db
+    .prepare(
+      `SELECT b.*, u.username, m.team_a, m.team_b
+       FROM bets b
+       JOIN users u ON u.id = b.user_id
+       JOIN matches m ON m.id = b.match_id
+       ORDER BY b.created_at DESC`
+    )
+    .all();
+}
+
 module.exports = {
   getBetsByUserId,
   getBetByUserAndMatch,
@@ -39,4 +55,6 @@ module.exports = {
   getPendingBetsByMatch,
   updateBetStatus,
   deleteBet,
+  getAllBetsWithDetails,
+  deleteBetsByUserId,
 };

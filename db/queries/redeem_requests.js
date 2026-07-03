@@ -61,11 +61,23 @@ function deleteRedeemRequest(id) {
   return db.prepare('DELETE FROM redeem_requests WHERE id = ?').run(id);
 }
 
+function deleteRedeemRequestsByUserId(userId) {
+  return db.prepare('DELETE FROM redeem_requests WHERE user_id = ?').run(userId);
+}
+
+function hasPendingRedeem(userId) {
+  const row = db.prepare("SELECT id FROM redeem_requests WHERE user_id = ? AND status = 'pending'").get(userId);
+  return !!row;
+}
+
 module.exports = {
   createRedeemRequest,
   getRedeemRequestsByUserId,
   getRedeemRequestById,
   getPendingRedeemRequests,
+  getAllRedeemRequests,
   updateRedeemStatus,
   deleteRedeemRequest,
+  deleteRedeemRequestsByUserId,
+  hasPendingRedeem,
 };

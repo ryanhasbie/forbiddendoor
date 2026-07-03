@@ -50,11 +50,17 @@ function deleteTopupRequest(id) {
   return db.prepare('DELETE FROM topup_requests WHERE id = ?').run(id);
 }
 
+function deleteTopupRequestsByUserId(userId) {
+  return db.prepare('DELETE FROM topup_requests WHERE user_id = ?').run(userId);
+}
+
 module.exports = {
   createTopupRequest,
   getTopupRequestsByUserId,
   getTopupRequestById,
   getPendingTopupRequests,
+  getAllTopupRequests,
   updateTopupStatus,
   deleteTopupRequest,
+  deleteTopupRequestsByUserId,
 };

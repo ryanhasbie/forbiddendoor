@@ -261,10 +261,10 @@ function loginPageData(mode, error = null) {
 
 function deleteUserById(userId) {
   const remove = db.transaction(() => {
-    db.prepare('DELETE FROM bets WHERE user_id = ?').run(userId);
+    queries.bets.deleteBetsByUserId(userId);
     db.prepare('DELETE FROM transactions WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM topup_requests WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM redeem_requests WHERE user_id = ?').run(userId);
+    queries.topup_requests.deleteTopupRequestsByUserId(userId);
+    queries.redeem_requests.deleteRedeemRequestsByUserId(userId);
     db.prepare('DELETE FROM wallets WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   });
@@ -728,10 +728,7 @@ function handleRedeemPost(req, res) {
     });
   }
 
-  const pending = db
-    .prepare("SELECT id FROM redeem_requests WHERE user_id = ? AND status = 'pending'")
-    .get(req.session.userId);
-  if (pending) {
+  if (queries.redeem_requests.hasPendingRedeem(req.session.userId)) {
     return redirectFlash(res, req, req.session.routes.PATH.dashboard, {
       error: 'Anda masih punya permintaan redeem yang menunggu',
       panel: 'panel-redeem',
@@ -878,18 +875,10 @@ function handleBetPost(req, res) {
 
 function handleAdminGet(req, res) {
   const flash = pullFlash(req);
-  const matches = db.prepare('SELECT * FROM matches ORDER BY kickoff ASC').all();
+  const matches = queries.matches.getAllMatches();
   const topupRequests = queries.topup_requests.getAllTopupRequests();
   const redeemRequests = queries.redeem_requests.getAllRedeemRequests();
-  const allBets = db
-    .prepare(
-      `SELECT b.*, u.username, m.team_a, m.team_b
-       FROM bets b
-       JOIN users u ON u.id = b.user_id
-       JOIN matches m ON m.id = b.match_id
-       ORDER BY b.created_at DESC`
-    )
-    .all();
+  const allBets = queries.bets.getAllBetsWithDetails();
 
   const pendingTopup = topupRequests.filter((r) => r.status === 'pending').length;
   const pendingRedeem = redeemRequests.filter((r) => r.status === 'pending').length;
