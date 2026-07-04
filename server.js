@@ -220,10 +220,22 @@ function rejectInvalidCsrf(req, res, routeKey) {
   const message = 'Permintaan tidak valid. Refresh halaman lalu coba lagi.';
 
   if (routeKey === 'POST:login') {
-    return res.render('login', { ...loginPageData('login', message), csrfToken: req.session.csrfToken });
+    return res.render('login', { 
+      ...loginPageData('login', message), 
+      csrfToken: req.session.csrfToken,
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
+    });
   }
   if (routeKey === 'POST:register') {
-    return res.render('login', { ...loginPageData('register', message), csrfToken: req.session.csrfToken });
+    return res.render('login', { 
+      ...loginPageData('register', message), 
+      csrfToken: req.session.csrfToken,
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
+    });
   }
   if (req.session.userId && req.session.routes) {
     const returnPath =
@@ -361,7 +373,12 @@ app.use((req, res) => {
     }
     ensureGuestRoutes(req);
     syncRouteLocals(req, res);
-    return res.render('login', loginPageData('login'));
+    return res.render('login', { 
+      ...loginPageData('login'),
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
+    });
   }
 
   if (!req.session.routes) {
@@ -380,7 +397,12 @@ app.use((req, res) => {
     if (req.session.userId) {
       return res.redirect(req.session.routes.PATH.dashboard);
     }
-    return res.render('login', loginPageData('register'));
+    return res.render('login', { 
+      ...loginPageData('register'),
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
+    });
   }
 
   if (routeKey === 'GET:leaderboard') {
@@ -537,6 +559,9 @@ function handleRegisterPost(req, res) {
     return res.render('login', {
       ...loginPageData('register', message),
       csrfToken: req.session.csrfToken,
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
     });
   };
 
@@ -598,6 +623,9 @@ function handleLoginPost(req, res) {
     return res.render('login', {
       ...loginPageData('login', message),
       csrfToken: req.session.csrfToken,
+      adsEnabled: ADS_ENABLED,
+      adsterraBannerKey: ADSTERRA_BANNER_KEY,
+      adsterraBannerMobileKey: ADSTERRA_BANNER_MOBILE_KEY,
     });
   };
 
